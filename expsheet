@@ -1,0 +1,402 @@
+question 1.  Write a program to implement a Multilayer Perceptron for a binary classification 
+problem (e.g. XOR or Simple dataset) using NumPy. 
+
+import numpy as np
+
+# XOR dataset
+X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
+y = np.array([[0], [1], [1], [0]])
+
+np.random.seed(42)
+
+# Initialize weights and biases
+W1 = np.random.randn(2, 4)
+b1 = np.zeros((1, 4))
+W2 = np.random.randn(4, 1)
+b2 = np.zeros((1, 1))
+
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+def sigmoid_derivative(x):
+    return x * (1 - x)
+
+lr = 0.5
+epochs = 10000
+
+# Training
+for epoch in range(epochs):
+    # Forward propagation
+    hidden = sigmoid(np.dot(X, W1) + b1)
+    output = sigmoid(np.dot(hidden, W2) + b2)
+
+    # Loss (Mean Squared Error)
+    loss = np.mean((y - output) ** 2)
+
+    # Backpropagation
+    d_output = (y - output) * sigmoid_derivative(output)
+    d_hidden = np.dot(d_output, W2.T) * sigmoid_derivative(hidden)
+
+    # Update weights and biases
+    W2 += lr * np.dot(hidden.T, d_output)
+    b2 += lr * np.sum(d_output, axis=0, keepdims=True)
+    W1 += lr * np.dot(X.T, d_hidden)
+    b1 += lr * np.sum(d_hidden, axis=0, keepdims=True)
+
+    if epoch % 1000 == 0:
+        print(f"Epoch {epoch}, Loss: {loss:.4f}")
+
+# Testing
+hidden = sigmoid(np.dot(X, W1) + b1)
+output = sigmoid(np.dot(hidden, W2) + b2)
+predictions = (output > 0.5).astype(int)
+
+print("\nInput  -> Predicted Output")
+for i in range(len(X)):
+    print(X[i], "->", predictions[i][0], f"(raw: {output[i][0]:.4f})")
+
+accuracy = np.mean(predictions == y) * 100
+print(f"\nFinal Loss: {loss:.4f}")
+print(f"Accuracy: {accuracy:.2f}%")
+
+
+
+Question 2 -a) Develop a regression (e.g., house price prediction) model using PyTorch or TensorFlow. 
+b) Develop a classification (e.g., MNIST digit classification) model using PyTorch or 
+TensorFlow. 
+
+import numpy as np
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+from sklearn.datasets import fetch_california_housing
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+# ---------------- Part A: Regression (House Price Prediction) ----------------
+data = fetch_california_housing()
+X, y = data.data, data.target
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+reg_model = keras.Sequential([
+    layers.Dense(64, activation='relu', input_shape=(X_train.shape[1],)),
+    layers.Dense(32, activation='relu'),
+    layers.Dense(1)
+])
+
+reg_model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+reg_model.fit(X_train, y_train, epochs=20, batch_size=32, validation_split=0.1, verbose=1)
+
+loss, mae = reg_model.evaluate(X_test, y_test, verbose=0)
+print("\nRegression Test MSE:", loss)
+print("Regression Test MAE:", mae)
+
+predictions = reg_model.predict(X_test[:5])
+print("\nPredicted Prices:", predictions.flatten())
+print("Actual Prices   :", y_test[:5])
+
+# ---------------- Part B: Classification (MNIST Digit Classification) ----------------
+(x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
+
+x_train = x_train / 255.0
+x_test = x_test / 255.0
+
+clf_model = keras.Sequential([
+    layers.Flatten(input_shape=(28, 28)),
+    layers.Dense(128, activation='relu'),
+    layers.Dense(10, activation='softmax')
+])
+
+clf_model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+clf_model.fit(x_train, y_train, epochs=5, batch_size=32, validation_split=0.1, verbose=1)
+
+test_loss, test_acc = clf_model.evaluate(x_test, y_test, verbose=0)
+print("\nClassification Test Loss:", test_loss)
+print("Classification Test Accuracy:", test_acc)
+
+pred = clf_model.predict(x_test[:5])
+print("\nPredicted Digits:", np.argmax(pred, axis=1))
+print("Actual Digits   :", y_test[:5])
+
+
+
+question 5- Write a program to build an autoencoder for image denoising or dimensionality reduction 
+using the MNIST dataset.
+
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+import numpy as np
+import matplotlib.pyplot as plt
+from tensorflow import keras
+from tensorflow.keras import layers
+
+# Load MNIST
+(x_train, _), (x_test, _) = keras.datasets.mnist.load_data()
+x_train = x_train.reshape(-1, 784) / 255.0
+x_test = x_test.reshape(-1, 784) / 255.0
+
+# Autoencoder: 784 -> 32 -> 784
+model = keras.Sequential([
+    layers.Dense(32, activation='relu', input_shape=(784,)),
+    layers.Dense(784, activation='sigmoid')
+])
+
+model.compile(optimizer='adam', loss='mse')
+model.fit(x_train, x_train, epochs=5, batch_size=256, validation_data=(x_test, x_test))
+
+# Test
+loss = model.evaluate(x_test, x_test, verbose=0)
+print("Test Loss:", loss)
+
+decoded = model.predict(x_test[:5])
+
+# Show original and reconstructed images
+plt.figure(figsize=(10, 4))
+for i in range(5):
+    plt.subplot(2, 5, i + 1)
+    plt.imshow(x_test[i].reshape(28, 28), cmap='gray')
+    plt.title("Original")
+    plt.axis('off')
+
+    plt.subplot(2, 5, i + 6)
+    plt.imshow(decoded[i].reshape(28, 28), cmap='gray')
+    plt.title("Reconstructed")
+    plt.axis('off')
+plt.show()
+
+
+
+
+question 8-  Write a program to build a simple web application that takes input from a user and 
+returns a prediction using a trained deep learning model. 
+
+
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+# pip install tensorflow flask
+import numpy as np
+from tensorflow import keras
+from tensorflow.keras import layers
+from flask import Flask, request, render_template_string
+
+# Train a simple model on the Iris dataset
+from sklearn.datasets import load_iris
+iris = load_iris()
+X, y = iris.data, iris.target
+
+model = keras.Sequential([
+    layers.Dense(16, activation='relu', input_shape=(4,)),
+    layers.Dense(3, activation='softmax')
+])
+model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+model.fit(X, y, epochs=100, verbose=0)
+print("Training Accuracy:", model.evaluate(X, y, verbose=0)[1])
+
+# Flask web app
+app = Flask(__name__)
+
+page = """
+<h2>Iris Flower Prediction</h2>
+<form method="post">
+    Sepal Length: <input type="text" name="sl"><br><br>
+    Sepal Width: <input type="text" name="sw"><br><br>
+    Petal Length: <input type="text" name="pl"><br><br>
+    Petal Width: <input type="text" name="pw"><br><br>
+    <input type="submit" value="Predict">
+</form>
+{% if result %}
+<h3>Prediction: {{ result }}</h3>
+{% endif %}
+"""
+
+@app.route('/', methods=['GET', 'POST'])
+def home():
+    result = None
+    if request.method == 'POST':
+        values = [float(request.form['sl']), float(request.form['sw']),
+                  float(request.form['pl']), float(request.form['pw'])]
+        pred = model.predict(np.array([values]), verbose=0)
+        result = iris.target_names[np.argmax(pred)]
+    return render_template_string(page, result=result)
+
+if __name__ == '__main__':
+    app.run(debug=False)
+
+question --Write a program to compare the performance of different optimizers (SGD, RMSProp, 
+Adam) on a deep learning model. 
+
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+import matplotlib.pyplot as plt
+from tensorflow import keras
+from tensorflow.keras import layers
+
+# Load MNIST
+(x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
+x_train = x_train / 255.0
+x_test = x_test / 255.0
+
+optimizers = {
+    'SGD': keras.optimizers.SGD(learning_rate=0.01),
+    'RMSprop': keras.optimizers.RMSprop(learning_rate=0.001),
+    'Adam': keras.optimizers.Adam(learning_rate=0.001)
+}
+
+histories = {}
+
+for name, opt in optimizers.items():
+    print("\nTraining with", name)
+    model = keras.Sequential([
+        layers.Flatten(input_shape=(28, 28)),
+        layers.Dense(128, activation='relu'),
+        layers.Dense(10, activation='softmax')
+    ])
+    model.compile(optimizer=opt, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    histories[name] = model.fit(x_train, y_train, epochs=5, batch_size=64,
+                                validation_split=0.1, verbose=1)
+    loss, acc = model.evaluate(x_test, y_test, verbose=0)
+    print(f"{name} Test Loss: {loss:.4f}, Test Accuracy: {acc:.4f}")
+
+# Plot accuracy and loss comparison
+plt.figure(figsize=(12, 4))
+
+plt.subplot(1, 2, 1)
+for name in histories:
+    plt.plot(histories[name].history['val_accuracy'], label=name)
+plt.title("Validation Accuracy")
+plt.xlabel("Epoch")
+plt.ylabel("Accuracy")
+plt.legend()
+
+plt.subplot(1, 2, 2)
+for name in histories:
+    plt.plot(histories[name].history['val_loss'], label=name)
+plt.title("Validation Loss")
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.legend()
+
+plt.show()
+
+
+question --Write a program to compare the effect of different hyperparameters (learning rate, batch 
+size, number of epochs) on model performance. 
+
+import numpy as np
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+from sklearn.datasets import fetch_california_housing
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+# ---------------- Part A: Regression (House Price Prediction) ----------------
+data = fetch_california_housing()
+X, y = data.data, data.target
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+reg_model = keras.Sequential([
+    layers.Dense(64, activation='relu', input_shape=(X_train.shape[1],)),
+    layers.Dense(32, activation='relu'),
+    layers.Dense(1)
+])
+
+reg_model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+reg_model.fit(X_train, y_train, epochs=20, batch_size=32, validation_split=0.1, verbose=1)
+
+loss, mae = reg_model.evaluate(X_test, y_test, verbose=0)
+print("\nRegression Test MSE:", loss)
+print("Regression Test MAE:", mae)
+
+predictions = reg_model.predict(X_test[:5])
+print("\nPredicted Prices:", predictions.flatten())
+print("Actual Prices   :", y_test[:5])
+
+# ---------------- Part B: Classification (MNIST Digit Classification) ----------------
+(x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
+
+x_train = x_train / 255.0
+x_test = x_test / 255.0
+
+clf_model = keras.Sequential([
+    layers.Flatten(input_shape=(28, 28)),
+    layers.Dense(128, activation='relu'),
+    layers.Dense(10, activation='softmax')
+])
+
+clf_model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+clf_model.fit(x_train, y_train, epochs=5, batch_size=32, validation_split=0.1, verbose=1)
+
+test_loss, test_acc = clf_model.evaluate(x_test, y_test, verbose=0)
+print("\nClassification Test Loss:", test_loss)
+print("Classification Test Accuracy:", test_acc)
+
+pred = clf_model.predict(x_test[:5])
+print("\nPredicted Digits:", np.argmax(pred, axis=1))
+print("Actual Digits   :", y_test[:5])
+
+
+question -- Write a program to perform sentimental classification using the IMDB dataset using 
+LSTM. 
+
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+import numpy as np
+from tensorflow import keras
+from tensorflow.keras import layers
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+# Load IMDB dataset (top 10000 words)
+max_words = 10000
+max_len = 200
+(x_train, y_train), (x_test, y_test) = keras.datasets.imdb.load_data(num_words=max_words)
+
+# Pad reviews to the same length
+x_train = pad_sequences(x_train, maxlen=max_len)
+x_test = pad_sequences(x_test, maxlen=max_len)
+
+# Build LSTM model
+model = keras.Sequential([
+    layers.Embedding(max_words, 32, input_length=max_len),
+    layers.LSTM(32),
+    layers.Dense(1, activation='sigmoid')
+])
+
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+model.fit(x_train, y_train, epochs=3, batch_size=64, validation_split=0.2, verbose=1)
+
+# Evaluate
+loss, acc = model.evaluate(x_test, y_test, verbose=0)
+print("\nTest Loss:", loss)
+print("Test Accuracy:", acc)
+
+# Sample predictions
+pred = model.predict(x_test[:5])
+for i in range(5):
+    label = "Positive" if pred[i][0] > 0.5 else "Negative"
+    actual = "Positive" if y_test[i] == 1 else "Negative"
+    print(f"Review {i+1}: Predicted = {label}, Actual = {actual}")
